@@ -1,0 +1,305 @@
+--@DEPENDS:.base,.alan,.yol,.uye
+
+--@TABLE
+create table sistem.oturum(
+	id bigserial primary key,
+	sid text unique,
+	alan int not null references sistem.alan(id),
+	uye int references sistem.uye(id),
+	cihaz text,
+	ip text,
+	baslangic timestamp default now(),
+	bitis timestamp,
+	hata_sayisi int,
+	lang char(2) default 'en',
+	country char(2) default 'TR'
+  );
+--@END
+
+--@TYPE ver=2
+create type sistem.cagridetay as (
+	fonk text,
+	dokun text,
+	alan int,
+	alanonek text,
+	tanim text,
+	id text,
+	oturumid bigint,
+	oturum text,
+	params json,
+	retset boolean
+);
+--@UPGRADE: 2 alter type sistem.cagridetay add attribute retset boolean;
+--@END
+
+--@FUNCTION norom ver=2
+create function sistem.oturum_ilk(a_method text, a_alan text, a_sid text, a_yol text, a_ip text, a_cihaz text) returns sistem.cagridetay
+language 'plpgsql' as
+$$
+       declare
+              v_cd sistem.cagridetay;
+              v_yol sistem.yolcoz;
+              v_func text;
+              v_sema text;
+              v_tablo text;
+              v_cihaz text;
+              v_uye int;
+       begin
+       -- alan
+              select id,onek into strict v_cd.alan,v_cd.alanonek 
+                     from sistem.alan 
+                     where a_alan=alan.isim;
+                     
+       -- onek silimi
+       		if v_cd.alanonek is not null then
+       			if length(v_cd.alanonek)>length(a_yol) then
+       				raise exception 'Yol, onekten kisa kisa:Yol=%,Onek=%',a_yol,v_cd.alanonek;
+       			end if;
+       			if length(v_cd.alanonek)=length(a_yol) then
+       				a_yol:='/';
+       			else
+       				a_yol:=substring(a_yol,length(v_cd.alanonek)+1);
+       			end if;
+       		end if;
+
+       -- oturum       
+              if a_sid is null then
+                     insert into sistem.oturum (alan,sid,ip,cihaz) 
+                             (select v_cd.alan, md5(random()::text || clock_timestamp()::text), a_ip, a_cihaz)
+                            returning id,sid into strict v_cd.oturumid,v_cd.oturum;
+                     
+              else
+                     select id,cihaz,uye into strict v_cd.oturum,v_cihaz,v_uye 
+                            from sistem.oturum
+                            where v_cd.alan=alan and a_sid=sid;
+                            
+                     if a_cihaz is not null and v_cihaz is not null and a_cihaz<>v_cihaz then
+                     	-- ayni oturumda farkli cihazlar kabul edilemez.
+                     	raise exception 'Security exception for %', a_ip;
+                     end if;
+              end if;
+
+		-- cihaz
+			if v_uye is null and a_cihaz is not null then
+				insert into sistem.uye (alan,cihaz) values (v_cd.alan, a_cihaz) 
+					returning id into v_uye;
+				update sistem.oturum set uye=v_uye where id=v_cd.oturumid;
+			end if;
+
+       -- yol
+              select * into strict v_yol from sistem.yol_analiz(a_method,a_yol);
+              select v_yol.yol,v_yol.id into v_cd.tanim,v_cd.id;
+       -- find table
+              --select * into strict v_tablo
+              --       from public.romcomp 
+              --       where comptype='table' and prefix=v_yol.prefix and not norom; 
+
+              select schemaname,named into v_sema,v_tablo
+                     from public.romcomp 
+                     where comptype='table' and uzanti=v_yol.uzanti and not norom;
+
+              if not found then
+                  raise exception 'not_found_prefix: Table not found for prefix %', v_yol.prefix;
+              end if;
+
+       -- find function
+               if v_yol.func is null then
+                      raise exception 'No method found';
+               end if;
+               
+               v_func:=v_tablo||'_'||v_yol.func;
+               select dokun into v_cd.dokun from public.romcomp
+                                    where comptype='function' and schemaname=v_sema and named=v_func and not norom;
+               
+               if not found then
+                      raise exception 'Function not found:%', v_func;
+               end if;
+               
+       -- find function params
+               select sistem.oturum_funcargs(v_sema,v_func) into v_cd.params;
+               
+               if not found then
+                  raise exception 'not_found_func: Function not found %', v_func;
+               end if;
+               
+               v_cd.fonk:=v_sema||'.'||v_func;
+
+	   -- find if returns set
+	   		   select proretset into strict v_cd.retset
+	   		   	from pg_proc pp 
+	   		   		join pg_namespace pn 
+	   		   			on (pp.pronamespace=pn.oid)  
+	   		   	where proname=v_func and nspname=v_sema;
+
+               return v_cd;
+       
+       end;
+$$;
+--@END
+
+
+--@FUNCTION ver=2
+create function sistem.oturum_funcargs(p_sema text, p_func text) returns json language 'sql' as
+$$
+	select case when a.args::text='[null]' then '[]'::json else a.args end from (
+		select 
+		      proc.routine_name,  
+		      	json_agg(args.parameter_name||'-'||args.data_type order by args.ordinal_position) args
+		from information_schema.routines proc
+		left join information_schema.parameters args
+		          on proc.specific_schema = args.specific_schema
+		          and proc.specific_name = args.specific_name
+		where proc.routine_schema=p_sema and proc.routine_name=p_func
+		group by proc.routine_name
+		) a;
+$$; 
+--@END
+
+
+--@RUN utest
+insert into sistem.alan(isim,onek) values ('deneme.com','/iceri/deyim');
+create schema myschema;
+create table mytable (a int);
+create function myschema.mytable_myfunc(a_oturum int, p_msg text) returns int language 'sql' as $$ Select 1; $$; 
+insert into public.romcomp(comptype,schemaname,named,ver,norom,uzanti)	values ('table', 'myschema', 'mytable', '1', false, 'myt');
+insert into public.romcomp(comptype,schemaname,named,ver,norom,uzanti)	values ('function', 'myschema', 'mytable_myfunc', '1', false, null);
+
+select assert_equals('myschema.mytable_myfunc', (sistem.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','cihazim')).fonk);
+select assert_equals('["a_oturum-integer", "p_msg-text"]', (sistem.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','cihazim')).params::text);
+select check_not_null((sistem.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','cihazim')).oturum);
+select check_not_null((sistem.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','cihazim')).oturumid);
+select check_not_null((sistem.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','cihazim')).alan);
+--select assert_equals('["my","sec"]', (sistem.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/sec/pri.myt/myfunc..', '192.168.1.5','cihazim')).klasor::text);
+select assert_equals('/my/sec', (sistem.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/sec/pri.myt/myfunc..', '192.168.1.5','cihazim')).tanim);
+
+--@END
+
+--@RUN utest
+insert into sistem.alan(isim,onek) values ('deneme.com','/iceri/deyim');
+create schema myschema;
+create table mytable (a int);
+create function myschema.mytable_myfunc() returns int language 'sql' as $$ Select 1; $$; 
+insert into public.romcomp(comptype,schemaname,named,ver,norom,uzanti)	values ('table', 'myschema', 'mytable', '1', false, 'myt');
+insert into public.romcomp(comptype,schemaname,named,ver,norom,uzanti)	values ('function', 'myschema', 'mytable_myfunc', '1', false, null);
+
+select assert_equals('myschema.mytable_myfunc', (sistem.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','cihazim')).fonk);
+select assert_equals('[]', (sistem.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','cihazim')).params::text);
+
+--@END
+
+
+--@FUNCTION
+create function sistem.oturum_benim(a_sid bigint, p_eposta text, p_sifre text) returns text
+language 'plpgsql'
+as $$
+	declare
+		v_oturum sistem.oturum;
+		v_uye sistem.uye;
+	begin
+	-- oturumu bul
+		select * into a_sid from sistem.oturum where id=a_sid;
+		if not found then
+			return 'oturum_yok';
+		end if;
+	-- kullaniciyi bul
+		select * into v_uye from sistem.uye where eposta=p_eposta and login and not kume;
+		if not found then
+			return 'kullanici_yok';
+		end if;
+		
+		if v_uye.askida then
+			return 'kullanici_askida'; 
+		end if;
+		
+	-- sifreyi kontrol et
+		if v_uye.sifre<>p_sifre then
+			return 'sifre_hatali';
+		end if;
+		
+		if v_oturum.uye is not null then
+			if v_oturum.uye<>v_uye.id then
+				return 'kullanici_karmasa';
+			end if;
+			return 'ok';			
+		end if;
+		update sistem.oturum 
+			set
+				uye=v_uye.id
+			where
+				id=a_sid;
+		
+		return 'ok';
+	end;
+$$;
+--@END
+
+
+--@FUNCTION
+create function sistem.oturum_benimcihaz(a_sid bigint, p_cihaz text) returns text
+language 'plpgsql'
+as $$
+	declare
+		v_oturum sistem.oturum;
+		v_uye sistem.uye;
+	begin
+	-- oturumu bul
+		select * into a_sid from sistem.oturum where id=a_sid;
+		if not found then
+			return 'oturum_yok';
+		end if;
+	-- kullaniciyi bul
+		select * into v_uye from sistem.uye where cihaz=p_cihaz and login and not kume;
+		if not found then
+		
+			return 'kullanici_yok';
+		end if;
+		
+		if v_uye.askida then
+			return 'kullanici_askida'; 
+		end if;
+		
+	-- sifreyi kontrol et
+		if v_uye.sifre<>p_sifre then
+			return 'sifre_hatali';
+		end if;
+		
+		if v_oturum.uye is not null then
+			if v_oturum.uye<>v_uye.id then
+				return 'kullanici_karmasa';
+			end if;
+			return 'ok';			
+		end if;
+		update sistem.oturum 
+			set
+				uye=v_uye.id
+			where
+				id=a_sid;
+		
+		return 'ok';
+	end;
+$$;
+--@END
+
+--@FUNCTION
+create function sistem.oturum_kapat(a_sid bigint) returns text
+language 'plpgsql'
+as $$
+	declare
+		v_oturum sistem.oturum;
+		v_uye sistem.uye;
+	begin
+	-- oturumu bul
+		select * into a_sid from sistem.oturum where id=a_sid;
+		if not found then
+			return 'oturum_yok';
+		end if;
+	-- kullanici iliskisi bitirildi
+		update sistem.oturum 
+			set
+				uye=null
+			where
+				id=a_sid;
+		return 'ok';
+	end;
+$$;
+--@END

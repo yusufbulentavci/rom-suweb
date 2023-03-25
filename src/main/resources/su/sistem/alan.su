@@ -1,0 +1,9 @@
+--@DEPENDS:.base
+
+--@TABLE
+create table sistem.alan(
+	id bigserial primary key,
+	isim text unique,
+	onek text
+  );
+--@END

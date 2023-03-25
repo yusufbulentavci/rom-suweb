@@ -1,0 +1,98 @@
+--@DEPENDS:.base,testing
+
+--@TABLE uzanti=ttl
+create table academy.title(
+	h jsonb,
+    title_id serial primary key,
+    title_name jsonb not null,
+    abbreviation jsonb not null,
+    is_academic boolean not null default false,
+    is_institutional boolean not null default false
+  );
+--@END
+
+--@FUNCTION 
+create function academy.title_new(p_title_name jsonb, p_abbreviation jsonb, p_is_academic boolean, p_is_institutional boolean) returns academy.title as $$
+declare
+	v_ret academy.title;
+begin
+	insert into academy.title(title_name,abbreviation,is_academic, is_institutional) 
+		values (p_title_name, p_abbreviation, p_is_academic, p_is_institutional) returning * into v_ret;
+	return v_ret;
+end;
+$$ language 'plpgsql';
+--@END
+
+--@FUNCTION 
+create function academy.title_get(a_id int) returns academy.title as $$
+declare
+	v_ret academy.title;
+begin
+	select * into v_ret 
+		from academy.title
+		where
+			title_id=a_id;
+	return v_ret;
+end;
+$$ language 'plpgsql';
+--@END
+
+--@FUNCTION 
+create function academy.title_list() returns setof academy.title as $$
+begin
+	return query
+		select * 
+			from academy.title;
+
+end;
+$$ language 'plpgsql';
+--@END
+
+--@FUNCTION 
+create function academy.title_update(a_id int, p_title_name jsonb, p_abbreviation jsonb, p_is_academic boolean, p_is_institutional boolean) returns academy.title as $$
+declare
+	v_ret academy.title;
+begin
+	update academy.title
+		set
+			title_name=p_title_name,
+			abbreviation=p_abbreviation,
+			is_academic=p_is_academic,
+			is_institutional=p_is_institutional
+		where
+			title_id=a_id
+		returning * into v_ret;
+	return v_ret;
+end;
+$$ language 'plpgsql';
+--@END
+
+--@FUNCTION 
+create function academy.title_delete(a_id int) returns academy.title as $$
+declare
+	v_ret academy.title;
+begin
+	delete 
+		from academy.title
+		where
+			title_id=a_id
+		returning * into v_ret;
+	return v_ret;
+end;
+$$ language 'plpgsql';
+--@END
+
+--@RUN utest
+select check_not_null((academy.title_new('{"en":"profesor"}'::jsonb,'{"en":"prof."}'::jsonb,true,false)).title_id);
+select assert_equals(1, (select count(*)  from academy.title_list()));
+
+select check_not_null((academy.title_update(1, '{"en":"profesor"}'::jsonb,'{"en":"prof."}'::jsonb,true,false)).title_id);
+
+select assert_equals(1, (select count(*)  from academy.title_list()));
+
+select check_not_null(academy.title_delete(1));
+
+select assert_equals(0, (select count(*)  from academy.title_list()));
+
+
+--@END

@@ -1,0 +1,13 @@
+
+
+
+--@TABLE uzanti=dpr
+create table plan.department(
+	h jsonb,
+    department_id references kampus.department(department_id) primary key,
+    rs_color text,
+    external_manager boolean,
+    external_mgr_label text,
+    external_mgr_abbv text,
+  );
+--@END

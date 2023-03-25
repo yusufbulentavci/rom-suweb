@@ -1,0 +1,16 @@
+--@DEPENDS:.base,.alan,.yol,.uye
+
+
+
+--@TABLE
+create table public.interaction_def(
+	interaction_name primary key,
+	paramdef jsonb,
+	result boolean,
+	declaration jsonb,
+	prosedur_type text,
+	func text,
+	client_app text
+  );
+--@END
+

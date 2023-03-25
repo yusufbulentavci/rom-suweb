@@ -1,0 +1,2 @@
+subject -> dersler
+subject group-> Yonelis, Egitim programlari, kodu var, sube kavrami/lise

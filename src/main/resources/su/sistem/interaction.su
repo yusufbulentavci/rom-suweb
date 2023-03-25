@@ -1,0 +1,22 @@
+--@DEPENDS:.base,.alan,.yol,.uye
+
+
+
+--@TABLE
+create table public.interaction(
+	id bigserial primary key,
+	role text not null,
+	prosedur_id bigint references sistem.prosedur(id) not null,
+	creation_time timestamp,
+	expire_time timestamp,
+	params jsonb,
+	declaration jsonb,
+	report jsonb,
+	accomplished timestamp,
+	result boolean,
+	prosedur_type text,
+	func text,
+	client_app text
+  );
+--@END
+

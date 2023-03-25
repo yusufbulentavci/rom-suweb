@@ -1,0 +1,93 @@
+--@DEPENDS:.base,testing
+
+--@TABLE uzanti=fcl
+create table academy.faculty(
+	h jsonb,
+    faculty_id serial primary key,
+    faculty_name jsonb not null,
+    abbreviation jsonb
+  );
+--@END
+
+--@FUNCTION 
+create function academy.faculty_new(p_faculty_name jsonb, p_abbreviation jsonb) returns academy.faculty as $$
+declare
+	v_ret academy.faculty;
+begin
+	insert into academy.faculty(faculty_name, abbreviation) 
+		values (p_faculty_name, p_abbreviation) returning * into v_ret;
+	return v_ret;
+end;
+$$ language 'plpgsql';
+--@END
+
+--@FUNCTION 
+create function academy.faculty_get(a_id int) returns academy.faculty as $$
+declare
+	v_ret academy.faculty;
+begin
+	select * into v_ret 
+		from academy.faculty
+		where
+			faculty_id=a_id;
+	return v_ret;
+end;
+$$ language 'plpgsql';
+--@END
+
+--@FUNCTION 
+create function academy.faculty_list() returns setof academy.faculty as $$
+begin
+	return query
+		select * 
+			from academy.faculty;
+end;
+$$ language 'plpgsql';
+--@END
+
+--@FUNCTION 
+create function academy.faculty_update(a_id int, p_faculty_name jsonb, p_abbreviation jsonb) returns academy.faculty as $$
+declare
+	v_ret academy.faculty;
+begin
+	update academy.faculty
+		set
+			faculty_name=p_faculty_name,
+			abbreviation=p_abbreviation
+		where
+			faculty_id=a_id
+		returning * into v_ret;
+	return v_ret;
+end;
+$$ language 'plpgsql';
+--@END
+
+--@FUNCTION 
+create function academy.faculty_delete(a_id int) returns academy.faculty as $$
+declare
+	v_ret academy.faculty;
+begin
+	delete 
+		from academy.faculty
+		where
+			faculty_id=a_id
+		returning * into v_ret;
+	return v_ret;
+end;
+$$ language 'plpgsql';
+--@END
+
+--@RUN utest
+select check_not_null((academy.faculty_new('{"en":"Muhendislik Fakultesi"}'::jsonb,'{"en":"Muh.Fak."}'::jsonb)).faculty_id);
+select assert_equals(1, (select count(*)  from academy.faculty_list()));
+
+select check_not_null((academy.faculty_update(1, '{"en":"name"}'::jsonb,'{"en":"Muh.Fak."}'::jsonb)).faculty_id);
+
+select assert_equals(1, (select count(*)  from academy.faculty_list()));
+
+select check_not_null(academy.faculty_delete(1));
+
+select assert_equals(0, (select count(*)  from academy.faculty_list()));
+
+
+--@END

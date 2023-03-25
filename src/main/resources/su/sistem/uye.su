@@ -1,0 +1,36 @@
+--@DEPENDS:.base,.alan
+
+--@TABLE uzanti=uye
+create table sistem.uye(
+	id serial primary key,
+	alan int not null references sistem.alan(id),
+	tarih timestamp not null default now(),
+	eposta text,
+	cihaz text,
+	isim text,
+	sifre text,
+	login boolean not null default true,
+	kume boolean not null default false,
+	onaylandi boolean,
+	askida boolean not null default false
+  );
+--@END
+
+--@TABLE
+create table sistem.kume_uye(
+	id serial primary key,
+	kume int,
+	uye int
+  );
+--@END
+
+--@FUNCTION
+create function sistem.uye_yeni(a_id int, p_eposta text, p_isim text, p_sifre text) returns int
+language 'plpgsql'
+as $$
+	begin
+	insert into sistem.uye (eposta,isim,sifre) values (p_eposta,p_isim,p_sifre) returning id;
+	end;
+$$;
+--@END
+

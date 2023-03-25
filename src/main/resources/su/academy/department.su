@@ -1,0 +1,107 @@
+--@DEPENDS:.base,testing,.faculty
+
+--@TABLE uzanti=dpr
+create table academy.department(
+	h jsonb,
+    department_id serial primary key,
+    department_name jsonb,
+    abbreviation jsonb,
+    faculty_id int references academy.faculty(faculty_id)
+  );
+--@END
+
+--@FUNCTION 
+create function academy.department_new(p_department_name jsonb, p_abbreviation jsonb, p_faculty_id int) returns academy.department as $$
+declare
+	v_ret academy.department;
+begin
+	insert into academy.department(department_name,abbreviation,faculty_id) 
+		values (p_department_name,p_abbreviation,p_faculty_id) returning * into v_ret;
+	return v_ret;
+end;
+$$ language 'plpgsql';
+--@END
+
+--@FUNCTION 
+create function academy.department_get(a_id int) returns academy.department as $$
+declare
+	v_ret academy.department;
+begin
+	select * into v_ret 
+		from academy.department
+		where
+			department_id=a_id;
+	return v_ret;
+end;
+$$ language 'plpgsql';
+--@END
+
+--@FUNCTION 
+create function academy.department_list() returns setof academy.department as $$
+begin
+	return query
+		select * 
+			from academy.department;
+end;
+$$ language 'plpgsql';
+--@END
+
+--@FUNCTION 
+create function academy.department_update(a_id int, p_department_name jsonb, p_abbreviation jsonb, p_faculty_id int) returns academy.department as $$
+declare
+	v_ret academy.department;
+begin
+	update academy.department
+		set
+			department_name=p_department_name,
+			abbreviation=p_abbreviation,
+			faculty_id=p_faculty_id
+		where
+			department_id=a_id
+		returning * into v_ret;
+	return v_ret;
+end;
+$$ language 'plpgsql';
+--@END
+
+--@FUNCTION 
+create function academy.department_delete(a_id int) returns academy.department as $$
+declare
+	v_ret academy.department;
+begin
+	delete 
+		from academy.department
+		where
+			department_id=a_id
+		returning * into v_ret;
+	return v_ret;
+end;
+$$ language 'plpgsql';
+--@END
+
+--@RUN utest
+select check_not_null((set_config('my.faculty_id',  (academy.faculty_new('{"en":"Muhendislik Fakultesi"}'::jsonb,'{"en":"Muh.Fak."}'::jsonb)).faculty_id::text, true)));
+
+select check_not_null(
+	(
+		(academy.department_new(
+			'{"en":"Bilgisayar Bilimleri Muhendisligi"}'::jsonb,
+			'{"en":"Bilg.Bil.Muh."}'::jsonb,
+			current_setting('my.faculty_id')::int)).department_id
+		)
+	);
+
+select assert_equals(1, (select count(*)  from academy.department_list()));
+
+select check_not_null(
+	(academy.department_update(1, 
+		'{"en":"Bilgisayar Bilimleri Muhendisligi"}'::jsonb,
+		'{"en":"Bilg.Bil.Muh."}'::jsonb,	
+		current_setting('my.faculty_id')::int)
+		).department_id
+	);
+
+select check_not_null(academy.department_delete(1));
+select assert_equals(0, (select count(*)  from academy.department_list()));
+
+--@END

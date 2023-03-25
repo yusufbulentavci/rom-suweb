@@ -1,0 +1,182 @@
+Personel
+
+Idari personel mavi ve beyaz
+
+ilmi derece: dr
+akademik unvan(docent) doc.dr
+gorev tanimi, job title: Teknik destek, ogretim gorevlisi, sekreter, bolum baskan yardimcisi, gorev taniminda hiyerarsi sozkonusu
+stafka; ayri sutun
+mutehassislik: Mimar, Elektrikci
+
+Emrah; akademik unvan: Prof.Dr, Ilmi derece: Dr., Gorev: Ogr.Gorevlisi, Mutehassislik: Mimar, Stafka: Prof 1.0
+Bulent;                  -                   -           Teknik destek,          Bilg.Muh., Stafka: Uzman 0.25
+Personel sicil numarasi; 5 haneli 0 ile baslayamayan, sirali olmasin
+Ogrenci numarasi; 6 haneli
+sicil numaralari kartlara basilmiyor
+
+Ogrenci: Fakulte, Kafedra, Yonelis
+Insaat Fakultesi, Insaat Muh, Bina ve insaatlar
+Insaat Fakultesi, Cevre muh, Su ve kanalizasyon
+
+
+Employee position stafka degeri icericek; yuzdelik veriliyor... %25
+Departmanlarin kadrolari olucak.
+Akademik unvan(yalnizca doktor) ayrica girilecek
+Profession ayri tablo
+
+
+Departmanlar hiyerarsisi kurulacak
+Departman flag; idari, akademik
+
+Kullanici sifreleri resetlenecek; degisimler ilk zamanda elle yapilacak
+Sifre degisimleri azure ve ad'yi degistirecek sekilde yapilacak.
+
+Personel, ogrenci ve adaylara ait bir numara uretilecek. Bu numara soz konusu kisi icin hic degismeyecek.
+
+
+Kullanici kimlik bilgileri nelerdir
+
+Ogrenciler programa kaydedilir. Sonlanma turleri, kayit aldirma, vefat, atilma.
+Programi ust bolum sunar.Program gereksenimlerin mukellef. Program mufredati
+Programin mufredati var. Bir mufredat birden fazla programa ait olabilir.
+Programin departmani var
+Mufredat verilecek title belirtiliyor. Mufredat sozlesme.
+Staj ders
+Sozlesme; genel not ortalamasi
+Ders gecme kurallari
+Ders alma kurallari/min max kredi
+Tekrar kurallari. Cakisan ders alinmaz. Ders devam mecburiyeti. Devamsizlik toleransi.
+Sartli gecme kurallari.
+5lik ve 4luk not kurallari; 4luk generik
+Sartli gectiklerini tekrar alir
+
+Mufredat; donemlik
+Guz donemi; 1357
+Donem derslerini acmak zamaninda acmak zorunlu; ... opsiyonel
+Zorunlu veya secmeli dersler olabilir
+Secmeli ders havuzlari var; onlardan bazilari o donem acilir
+Bir ders hem secmeli hem zorunlu olabilir
+lisans yonetmeligi
+Mufredata uzerinde on kosullar dayatilabilir
+
+Ders tanimi / cok dilli olucak, transcript icin gerekli
+Dersi alabilecek programlar
+Ders anlatim dilleri
+Ders gecerlilik suresi
+sanato karar tarihi
+ders kodu
+adi tekil olmasi gerekmez
+adi en
+ders grubu
+tanimi
+Dersi sunan; departman  var
+Degerlendirme skalasi; sablonu; not, A-F,  (tezi, gecti kaldi, devam ediyor) minimum gecer not
+Dersi sunan, ve skalasi degistirilebilir mi
+Haftalik ders saati , kac hafta?
+	teori, uygulama, lab
+Ders kategorisi; ders, staj, text
+Bolum turu; lisans, yuksek lisans, doktora, sertikfika
+Dersin yapilis bicimi; yuzyuze, hibrit, uzaktan
+Dersin koordinatoru
+deris verenler
+dersin amaci
+dersin icerigi
+dersi malzemesi
+dersin beceri matris degerleri
+--dersin onkosulu; su kodlu dersten gecmis, su kodlu kodlu dersten su puan, dersi su su mufredatta olanlar alabilir
+	su kodlu dersi kalsan bile almis olmak
+
+Beceri tablosu
+Numarasi
+Programi
+adi
+Donem donem degisebilir
+
+Misafir ogrenci icin tum dersler acik ama danisman onayindan gecer. ders filtresi olabilir
+
+
+Mezuniyet gereksinimleri
+
+Egitim donemi/isletme
+Guz-bahar-yaz/okulu 2023 Bahar
+Dersin teklifi sunan organizyon bolumu yapiyor, fakulte, rektorluk onayliyor.
+Sistem sunana liste hazirlar
+
+
+Ders teori,uygulama,lab; haftalik
+	dersin icerisinde paket teklifi olucak
+	dersin sube kontenjani ile ilgili oneri
+	Once subelere bol, sonra paketle
+	ders paketlenir; 1-2-0 seklinde
+			3-5-0=> 2+2,1+3
+
+
+
+Ogretim gorevlisi, belli bir departman(lar)in altinda tanimlanir
+Potansiyel ogretmenler ogretim uyeleri/stafka
+
+
+Ders rezervasyonu sepet ile oluyor. Onaya veya onaydan geri gelebiliyro
+Rezervasyon expire suresi
+Alttan alanlari zorla/yonetmelik
+
+Ogrenci icin tum atamalar yapilir, sonra degistirme proseduru
+
+
+
+Ogrenci isimlerinde ozbekce,pasaport,rusca
+pasaport kismi icin sanal klavye tercih edilir
+
+
+Intibak mufredat derslerinin transferi
+
+
+Binalar, siniflari, kat
+Engelli eleman asansor
+Binalar arasi mesafe, sure, walking distance
+Sinfilar, auditorya, turleri; lab kimya, bio
+lab features; super bilgisayar
+dersin gereksinimlerinde requirement <=> features
+
+Ikinci ogretim icin gunduzlerin kayitli dersleri olmali. Her dersin bir tanesi kayit edilmesi gerek.
+
+
+
+fan-ders
+nazarat=sinav
+
+to-lov shakli/payment kontract; devlet garanti; tolov shartname
+
+
+
+Ogrenci kayit turu icerisinde; bursluluk....
+
+
+Ogrenci ozluk 
+Fakulte
+Mutahassislik
+Girdigi yil
+Tolllov sekli
+Kayit sekli; sinav, dikey gecis, yatay gecis
+Guruh
+Pasaport malumati;
+ozbekistan
+
+
+Bolum-yonelis
+Ogrenciler yonelisleri
+okul reca - mufredat
+
+Mufredatta var, ogrenci sorumlu egil
+
+Farkli dil ile anlatilan farkli bolum
+
+Sig'im -> kapasite
+
+fan ders
+
+ARX1020.P05.Q02
+Ders, sube parcasi, haftalik bolum
+
+
+x1

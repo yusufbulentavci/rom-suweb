@@ -1,0 +1,30 @@
+
+
+
+--@TABLE uzanti=dpr
+create table kampus.department(
+	h jsonb,
+    department_id serial primary key,
+    parent_department int references kampus.department(department_id)
+    department_name jsonb,
+    abbreviation jsonb,
+    abbreviation text,
+    name text,
+    dept_code text,
+    external_uid text,
+    rs_color text,
+    external_manager boolean,
+    external_mgr_label text,
+    external_mgr_abbv text,
+    solver_group_id bigint,
+    status_type bigint,
+    dist_priority bigint default 0,
+    allow_req_time boolean default false,
+    allow_req_room boolean default false,
+    last_modified_time timestamp with time zone,
+    allow_req_dist boolean default false,
+    allow_events boolean default false,
+    instructor_pref boolean default true,
+    allow_student_schd boolean default true
+  );
+--@END

@@ -1,0 +1,20 @@
+--@DEPENDS:.base
+
+--@TABLE uzanti=cvr
+create table sistem.ceviri(
+	tanim text primary key,
+	lang char(2),
+	tipi smallint,
+	cevirisi text not null
+  );
+--@END
+
+
+--@FUNCTION
+create function sistem.ceviri_get(a_lang char(2), p_tanim text) returns text
+language 'sql'
+as $$
+	select cevirisi from sistem.ceviri where lang=a_lang and tanim=p_tanim;
+$$
+--@END
+

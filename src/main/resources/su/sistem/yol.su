@@ -1,0 +1,125 @@
+--@DEPENDS:.base,testing
+
+--@TYPE
+create type sistem.yolcoz as (
+-- uzantinin null olmasi bunun bir klasor oldugunu gosterir
+	uzanti text,
+	yol text,
+	id text,
+	func text
+);
+--@END
+
+
+--@FUNCTION ver=1 norom
+create function sistem.yol_analiz(a_method text, a_yol text) returns sistem.yolcoz
+language 'plpgsql'
+as $$
+	declare
+		v_ret sistem.yolcoz;
+		
+		v_yola text[];
+		v_a text;
+	begin
+		select string_to_array(a_yol,'/') into strict v_yola;
+	--	raise notice '-->%,%',v_yola,array_length(v_yola,1);
+		for ind in reverse array_length(v_yola,1)..1  loop
+			v_a:=v_yola[ind];
+		--	raise notice '-->icerde,%',v_a;
+			if length(v_a)=0 then
+				raise notice '-->continue';
+				continue;
+			end if;
+			
+			if v_ret.uzanti is null and length(v_a)=3 then
+					select lower(v_a) into strict v_ret.uzanti;
+					if v_ret.func is null then
+						if a_method ='get' then
+							v_ret.func:='list';
+						elsif a_method='post' then
+							v_ret.func:='new';
+						else
+							raise exception 'Unexpected uzanti';
+						end if;
+					end if;
+					continue;
+			end if;
+			
+			if v_ret.func is null  then
+--				raise notice '-->v_func null';
+				if v_a like '%\.\.' then
+					select substring(v_a,0,length(v_a)-1) into strict v_ret.func;
+					continue;
+				else
+					v_ret.func:=a_method;
+				end if;
+			end if;
+			if v_ret.yol is null then
+				if v_a like '%.___' then
+					select substring(v_a,length(v_a)-2,3) into strict v_ret.uzanti;
+					select substring(v_a,0,length(v_a)-3) into strict v_ret.id;
+					continue;
+				end if;
+				raise notice '->%', v_a; 
+				if v_a like 'id\_%' then
+			--		raise notice 'id';
+					select substring(v_a,4,length(v_a)-1) into strict v_ret.id;
+					--v_ret.id:=v_ret.yol;
+				else
+			--		raise notice 'not';
+					v_ret.yol:='/'||v_a;
+			--		v_ret.id:=null;
+				end if;
+			
+			else
+				v_ret.yol:='/'||v_a||v_ret.yol;
+				--select array_prepend(v_a,v_grup) into v_grup;
+			end if;
+		end loop;
+--		if v_grup is not null then
+--			select array_to_json(v_grup) into v_ret.klasor;
+--		end if;
+		--	raise warning '>>>>%',v_ret;
+		
+		if v_ret.id is not null and v_ret.func = 'put' then
+			v_ret.func:='update';
+		end if;
+		
+		return v_ret;
+	end;
+$$
+--@END
+
+--@RUN utest
+
+	-- /hello/world/snv
+	select assert_equals('list', (sistem.yol_analiz('get', '/hello/world/snv')).func);
+	select assert_equals('new', (sistem.yol_analiz('post', '/hello/world/snv')).func);
+	select assert_equals('snv', (sistem.yol_analiz('get', '/hello/world/snv')).uzanti);
+	select assert_equals('/hello/world', (sistem.yol_analiz('get', '/hello/world/snv')).yol);
+	
+	-- /hello/world/snv/myfunc..
+	select assert_equals('myfunc', (sistem.yol_analiz('get', '/hello/world/snv/myfunc..')).func);
+	select assert_equals('snv', (sistem.yol_analiz('get', '/hello/world/snv/myfunc..')).uzanti);
+	select assert_equals('/hello/world', (sistem.yol_analiz('get', '/hello/world/snv/myfunc..')).yol);
+
+	
+	-- /hello/world/birinci.snv
+	select assert_equals('get', (sistem.yol_analiz('get', '/hello/world/birinci.snv')).func);
+	select assert_equals('snv', (sistem.yol_analiz('get', '/hello/world/birinci.snv')).uzanti);
+	select assert_equals('birinci', (sistem.yol_analiz('get', '/hello/world/birinci.snv')).id);
+	select assert_equals('/hello/world', (sistem.yol_analiz('get', '/hello/world/birinci.snv')).yol);
+	select assert_equals('update', (sistem.yol_analiz('put', '/hello/world/birinci.snv')).func);
+
+	
+	-- /hello/world/birinci.snv/myfunc..
+	select assert_equals('myfunc', (sistem.yol_analiz('get', '/hello/world/birinci.snv/myfunc..')).func);
+	select assert_equals('snv', (sistem.yol_analiz('get', '/hello/world/birinci.snv/myfunc..')).uzanti);
+	select assert_equals('birinci', (sistem.yol_analiz('get', '/hello/world/birinci.snv/myfunc..')).id);
+	select assert_equals('/hello/world', (sistem.yol_analiz('get', '/hello/world/birinci.snv/myfunc..')).yol);
+
+
+
+	
+	
+--@END
