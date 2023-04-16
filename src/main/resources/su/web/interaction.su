@@ -1,0 +1,85 @@
+--@DEPENDS:.base,.prosedur,testing
+
+
+
+--@TABLE uzanti=int
+create table web.interaction(
+	interaction_id bigserial primary key,
+	user_id int not null,
+	prosedur_id bigint references web.prosedur(prosedur_id) not null,
+	cmd text not null,
+	creation_time timestamp not null default now(),
+	expire_time timestamp,
+	success_if_expire boolean not null default false,
+	accomplished timestamp,
+	token text,
+	subject jsonb,
+	body jsonb,
+	params jsonb,
+	initial jsonb,
+	vals jsonb,
+	result boolean
+  );
+--@END
+
+
+--@FUNCTION norom
+create function web.interaction_new(a_user_id int, p_prosedur_id bigint, p_cmd text, p_valid_for interval, 
+	p_subject jsonb, p_body jsonb, p_params jsonb, p_default jsonb default null, p_success_if_expire boolean default false) returns int
+language 'plpgsql'
+as $$
+	declare
+		v_ret bigint;
+	begin
+	insert into web.interaction (user_id, prosedur_id, cmd, 
+			expire_time, 
+			subject, body, params, vals, success_if_expire) 
+		values (a_user_id, p_prosedur_id, p_cmd, 
+			(case when p_valid_for is not null then now()+p_valid_for else null end),
+			p_subject, p_body, p_params, p_default, p_success_if_expire)
+		returning interaction_id into v_ret;
+	return v_ret;
+	end;
+$$;
+--@END
+
+--@FUNCTION
+create function web.interaction_complete(a_user_id int, a_id bigint, p_values jsonb) returns bigint
+language 'plpgsql'
+as $$
+	declare
+		v_int web.interaction;
+		v_proc web.prosedur;
+		v_exec text;
+	begin
+	
+		update web.interaction 
+			set vals=p_values
+			where interaction_id=a_id
+			returning * into strict v_int;
+			
+		select * into strict v_proc
+			from web.prosedur
+			where prosedur_id=v_int.prosedur_id;
+	
+	--	v_exec:=format('perform web.prosedur_%s(%s,''next'',%s);', v_proc.prosedur_code, a_user_id, v_int.prosedur_id);
+
+	--	execute v_exec;
+	perform web.prosedur_rcp_root_create_person(0,'next',1,p_interaction=>a_id);
+	return 0;
+	end;
+$$;
+--@END
+
+
+--@FUNCTION
+create function web.interaction_list(a_user_id int) returns jsonb
+language 'sql'
+as $$
+		select jsonb_agg(to_jsonb(t)) 
+			from web.interaction t
+			where user_id=a_user_id
+				and result is null;
+$$;
+--@END
+

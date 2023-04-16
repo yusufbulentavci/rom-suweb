@@ -1,14 +1,15 @@
---@DEPENDS:.base,.alan,.yol,.uye
+--@DEPENDS:.base,.prosedur
 
 
 
---@TABLE
-create table public.interaction(
+--@TABLE uzanti=not
+create table web.notification(
 	id bigserial primary key,
 	role text not null,
-	prosedur_id bigint references sistem.prosedur(id) not null,
+	prosedur_id bigint references web.prosedur(id) not null,
 	creation_time timestamp,
 	expire_time timestamp,
+	token text,
 	params jsonb,
 	declaration jsonb,
 	report jsonb,

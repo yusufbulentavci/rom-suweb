@@ -2,5 +2,5 @@
 
 
 --@SCHEMA
-create schema sistem;
+create schema web;
 --@END

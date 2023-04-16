@@ -1,6 +1,0 @@
---@DEPENDS:base
-
-
---@SCHEMA
-create schema ortak;
---@END

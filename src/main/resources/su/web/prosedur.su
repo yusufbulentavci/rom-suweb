@@ -1,0 +1,49 @@
+--@DEPENDS:.base
+
+
+
+--- valid between nasil tanimlanir
+
+--@TABLE uzanti=pro
+create table web.prosedur(
+	prosedur_id bigserial primary key,
+	creation_time timestamp not null default now(),
+	expire_time timestamp,
+	prosedur_code text,
+	owner_id int,
+	subject jsonb,
+	body jsonb,
+	env jsonb,
+	current_step text not null,
+	result_out jsonb
+  );
+--@END
+
+--@FUNCTION norom
+create function web.prosedur_new(a_user_id int, p_prosedur_code text, p_initial_step text, p_subject jsonb, p_body jsonb, p_env jsonb) returns bigint
+language 'sql'
+as $$
+	insert into web.prosedur (
+					prosedur_code,
+					current_step,
+					owner_id,
+					subject,
+					env)
+			values (
+					p_prosedur_code,
+					p_initial_step,
+					a_user_id, 
+					p_subject,
+					p_env
+				)
+			returning prosedur_id;
+$$
+--@END
+
+--create function web.prosedur_start(a_user_id int, p_prosedur_name text) returns jsonb
+--create function web.prosedur_cancel(a_user_id int, p_prosedur_id bigint, p_reason jsonb) returns jsonb
+--create function web.prosedur_update_env(a_id bigint, p_key text, p_val jsonb) returns jsonb
+--create function web.prosedur_available_prosedurs(a_user_id int) returns jsonb
+
+
+

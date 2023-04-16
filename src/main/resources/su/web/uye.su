@@ -1,0 +1,30 @@
+--@DEPENDS:.base,.alan
+
+--@TABLE uzanti=uye
+create table web.uye(
+	id serial primary key,
+	alan int not null references web.alan(id),
+	tarih timestamp not null default now(),
+	eposta text,
+	cihaz text,
+	isim text,
+	sifre text,
+	login boolean not null default true,
+	rols jsonb,
+	onaylandi boolean,
+	askida boolean not null default false
+  );
+--@END
+
+--@FUNCTION roles=web_member_admin
+create function web.uye_yeni(a_id int, p_eposta text, p_isim text, p_sifre text) returns int
+language 'plpgsql'
+as $$
+	begin
+	
+	
+	insert into web.uye (id,eposta,isim,sifre) values (0,p_eposta,p_isim,p_sifre) returning id;
+	end;
+$$;
+--@END
+

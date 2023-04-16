@@ -1,7 +1,7 @@
 --@DEPENDS:.base
 
 --@TABLE
-create table sistem.alan(
+create table web.alan(
 	id bigserial primary key,
 	isim text unique,
 	onek text

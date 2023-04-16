@@ -1,7 +1,7 @@
 --@DEPENDS:.base,testing
 
 --@TYPE
-create type sistem.yolcoz as (
+create type web.yolcoz as (
 -- uzantinin null olmasi bunun bir klasor oldugunu gosterir
 	uzanti text,
 	yol text,
@@ -12,11 +12,11 @@ create type sistem.yolcoz as (
 
 
 --@FUNCTION ver=1 norom
-create function sistem.yol_analiz(a_method text, a_yol text) returns sistem.yolcoz
+create function web.yol_analiz(a_method text, a_yol text) returns web.yolcoz
 language 'plpgsql'
 as $$
 	declare
-		v_ret sistem.yolcoz;
+		v_ret web.yolcoz;
 		
 		v_yola text[];
 		v_a text;
@@ -93,30 +93,30 @@ $$
 --@RUN utest
 
 	-- /hello/world/snv
-	select assert_equals('list', (sistem.yol_analiz('get', '/hello/world/snv')).func);
-	select assert_equals('new', (sistem.yol_analiz('post', '/hello/world/snv')).func);
-	select assert_equals('snv', (sistem.yol_analiz('get', '/hello/world/snv')).uzanti);
-	select assert_equals('/hello/world', (sistem.yol_analiz('get', '/hello/world/snv')).yol);
+	select assert_equals('list', (web.yol_analiz('get', '/hello/world/snv')).func);
+	select assert_equals('new', (web.yol_analiz('post', '/hello/world/snv')).func);
+	select assert_equals('snv', (web.yol_analiz('get', '/hello/world/snv')).uzanti);
+	select assert_equals('/hello/world', (web.yol_analiz('get', '/hello/world/snv')).yol);
 	
 	-- /hello/world/snv/myfunc..
-	select assert_equals('myfunc', (sistem.yol_analiz('get', '/hello/world/snv/myfunc..')).func);
-	select assert_equals('snv', (sistem.yol_analiz('get', '/hello/world/snv/myfunc..')).uzanti);
-	select assert_equals('/hello/world', (sistem.yol_analiz('get', '/hello/world/snv/myfunc..')).yol);
+	select assert_equals('myfunc', (web.yol_analiz('get', '/hello/world/snv/myfunc..')).func);
+	select assert_equals('snv', (web.yol_analiz('get', '/hello/world/snv/myfunc..')).uzanti);
+	select assert_equals('/hello/world', (web.yol_analiz('get', '/hello/world/snv/myfunc..')).yol);
 
 	
 	-- /hello/world/birinci.snv
-	select assert_equals('get', (sistem.yol_analiz('get', '/hello/world/birinci.snv')).func);
-	select assert_equals('snv', (sistem.yol_analiz('get', '/hello/world/birinci.snv')).uzanti);
-	select assert_equals('birinci', (sistem.yol_analiz('get', '/hello/world/birinci.snv')).id);
-	select assert_equals('/hello/world', (sistem.yol_analiz('get', '/hello/world/birinci.snv')).yol);
-	select assert_equals('update', (sistem.yol_analiz('put', '/hello/world/birinci.snv')).func);
+	select assert_equals('get', (web.yol_analiz('get', '/hello/world/birinci.snv')).func);
+	select assert_equals('snv', (web.yol_analiz('get', '/hello/world/birinci.snv')).uzanti);
+	select assert_equals('birinci', (web.yol_analiz('get', '/hello/world/birinci.snv')).id);
+	select assert_equals('/hello/world', (web.yol_analiz('get', '/hello/world/birinci.snv')).yol);
+	select assert_equals('update', (web.yol_analiz('put', '/hello/world/birinci.snv')).func);
 
 	
 	-- /hello/world/birinci.snv/myfunc..
-	select assert_equals('myfunc', (sistem.yol_analiz('get', '/hello/world/birinci.snv/myfunc..')).func);
-	select assert_equals('snv', (sistem.yol_analiz('get', '/hello/world/birinci.snv/myfunc..')).uzanti);
-	select assert_equals('birinci', (sistem.yol_analiz('get', '/hello/world/birinci.snv/myfunc..')).id);
-	select assert_equals('/hello/world', (sistem.yol_analiz('get', '/hello/world/birinci.snv/myfunc..')).yol);
+	select assert_equals('myfunc', (web.yol_analiz('get', '/hello/world/birinci.snv/myfunc..')).func);
+	select assert_equals('snv', (web.yol_analiz('get', '/hello/world/birinci.snv/myfunc..')).uzanti);
+	select assert_equals('birinci', (web.yol_analiz('get', '/hello/world/birinci.snv/myfunc..')).id);
+	select assert_equals('/hello/world', (web.yol_analiz('get', '/hello/world/birinci.snv/myfunc..')).yol);
 
 
 

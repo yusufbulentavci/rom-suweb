@@ -1,0 +1,19 @@
+--@DEPENDS:web.base,web.alan,web.uye
+
+--@RUN
+do
+$$
+declare
+	v_alan bigint;
+begin
+	insert into web.alan(isim,onek) 
+		values ('localhost','/kampus')
+		returning id into v_alan;
+
+	insert into web.uye(id,alan,isim,rols) 
+		values (0,v_alan,'root','["root"]');
+end;
+$$ language 'plpgsql';
+--@END
+
+

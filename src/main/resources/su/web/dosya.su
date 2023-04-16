@@ -1,0 +1,24 @@
+--@DEPENDS:.base
+
+--@TABLE
+create table web.dosya(
+	id bigserial primary key,
+	isim text,
+	veri bytea,
+	alan int references web.alan(id),
+	klasor int references web.klasor(id), 
+	yazan int references web.uye(id),
+	okuyan int references web.uye(id)
+  );
+--@END
+
+
+--@FUNCTION
+create function web.alan_yeni(p_isim text) returns void
+language 'sql'
+as $$
+	insert into web.alan (isim) 
+		values (p_isim);
+$$
+--@END
+

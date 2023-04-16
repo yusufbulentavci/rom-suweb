@@ -1,6 +1,0 @@
---@DEPENDS:base,sistem.ready
-
-
---@SCHEMA
-create schema academy;
---@END
