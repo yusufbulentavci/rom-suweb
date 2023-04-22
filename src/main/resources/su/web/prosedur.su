@@ -11,8 +11,8 @@ create table web.prosedur(
 	expire_time timestamp,
 	prosedur_code text,
 	owner_id int,
-	subject jsonb,
-	body jsonb,
+	subject text,
+	body text,
 	env jsonb,
 	current_step text not null,
 	result_out jsonb
@@ -20,7 +20,7 @@ create table web.prosedur(
 --@END
 
 --@FUNCTION norom
-create function web.prosedur_new(a_user_id int, p_prosedur_code text, p_initial_step text, p_subject jsonb, p_body jsonb, p_env jsonb) returns bigint
+create function web.prosedur_new(a_user_id int, p_prosedur_code text, p_initial_step text, p_subject text, p_body text, p_env jsonb) returns bigint
 language 'sql'
 as $$
 	insert into web.prosedur (

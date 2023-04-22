@@ -1,4 +1,4 @@
---@DEPENDS:.base,.alan,.yol,.uye
+--@DEPENDS:.base,.alan,.yol,.uye,.notification,.jwt
 
 --@TABLE
 create table web.oturum(
@@ -11,12 +11,12 @@ create table web.oturum(
 	baslangic timestamp default now(),
 	bitis timestamp,
 	hata_sayisi int,
-	lang char(2) default 'en',
+	lang char(2) default 'uz',
 	country char(2) default 'TR'
   );
 --@END
 
---@TYPE ver=2
+--@TYPE ver=3
 create type web.cagridetay as (
 	fonk text,
 	dokun text,
@@ -25,15 +25,44 @@ create type web.cagridetay as (
 	tanim text,
 	id text,
 	oturumid bigint,
-	oturum text,
+	sid text,
 	params json,
-	retset boolean
+	retset boolean,
+	durum text,
+	eposta text,
+	acikla text,
+	uye_id int,
+	rettype text
 );
---@UPGRADE: 2 alter type web.cagridetay add attribute retset boolean;
+--@UPGRADE: 2 alter type web.cagridetay add attribute uye_id int;
+--@UPGRADE: 3 alter type web.cagridetay add attribute rettype text;
 --@END
 
---@FUNCTION norom ver=2
-create function web.oturum_ilk(a_method text, a_alan text, a_sid text, a_yol text, a_ip text, a_cihaz text) returns web.cagridetay
+
+--@FUNCTION norom
+create function web.generate_random_password(p_count int) returns text
+    as $$
+declare
+   j int4;
+   result text;
+   allowed text;
+   allowed_len int4;
+begin
+   allowed := '123456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ';
+   allowed_len := length(allowed);
+   result := '';
+   while length(result) < p_count loop
+      j := int4(random() * allowed_len);
+      result := result || substr(allowed, j+1, 1);
+   end loop;
+   return result;
+end;
+$$ language plpgsql;
+--@END
+
+--@FUNCTION norom ver=7
+create function web.oturum_ilk(a_method text, a_alan text, a_sid text, a_yol text, a_ip text, a_cihaz text, 
+	p_email text default null, p_password text default null, p_forgot boolean default false, p_newuser boolean default false) returns web.cagridetay
 language 'plpgsql' as
 $$
        declare
@@ -44,24 +73,30 @@ $$
               v_tablo text;
               v_cihaz text;
               v_uye int;
+              v_pwd text;
+              v_token text;
        begin
        -- alan
-          select id,onek into v_cd.alan,v_cd.alanonek 
+          	select id,onek into v_cd.alan,v_cd.alanonek 
                  from web.alan 
                  where a_alan=isim;
             if not found then
-            	raise exception 'NOT FOUND:%',(select count(*) from web.alan);
+            	v_cd.durum:='domain_not_found';
+            	return v_cd;
             end if;
         
       		if v_cd.alan is null or v_cd.alanonek is null then
-      			raise exception 'web.alan not found for(%,%)',a_alan,v_cd.alan;
+      			v_cd.durum:='domain_found_but_onek_is_null';
+            	return v_cd;
       		end if;
-        
+
         
        -- onek silimi
        		if v_cd.alanonek is not null then
        			if length(v_cd.alanonek)>length(a_yol) then
-       				raise exception 'Yol, onekten kisa kisa:Yol=%,Onek=%',a_yol,v_cd.alanonek;
+       				v_cd.durum:='domain_found_but_onek_is_null';
+            		return v_cd;
+       				--raise exception 'Yol, onekten kisa kisa:Yol=%,Onek=%',a_yol,v_cd.alanonek;
        			end if;
        			if length(v_cd.alanonek)=length(a_yol) then
        				a_yol:='/';
@@ -71,82 +106,179 @@ $$
        		end if;
 
        -- oturum       
-              if a_sid is null then
-                     insert into web.oturum (alan,sid,ip,cihaz) 
-                             (select v_cd.alan, md5(random()::text || clock_timestamp()::text), a_ip, a_cihaz)
-                            returning id,sid into strict v_cd.oturumid,v_cd.oturum;
-                     
-              else
-                     select id,cihaz,uye into strict v_cd.oturum,v_cihaz,v_uye 
-                            from web.oturum
-                            where v_cd.alan=alan and a_sid=sid;
-                            
-                     if a_cihaz is not null and v_cihaz is not null and a_cihaz<>v_cihaz then
-                     	-- ayni oturumda farkli cihazlar kabul edilemez.
-                     	raise exception 'Security exception for %', a_ip;
-                     end if;
-              end if;
+         if a_sid is null then
+			-- oturum yok
+				-- eposta yoksa geri don
+				if p_email is null then
+					v_cd.durum:='require_email_to_login';
+					return v_cd;
+				end if;
+				
+				-- unuttu ise uye veritabaninda eposta kontrolu yap
+				if p_forgot is not null and p_forgot then
+					select id into v_uye
+						from web.uye
+						where eposta=p_email;
+					if not found then
+						v_cd.durum:='forgot_pwd_email_not_found';
+						return v_cd;
+					end if;
+					-- var ise yeni sifre olustur, eposta ile gonder
+					v_pwd:=web.generate_random_password(8);
+					v_token:=web.generate_random_password(32);
+					update web.uye
+						set sifre=v_pwd, token=v_token
+						where id=v_uye;
+					
+					insert into web.notification
+						(cls,eposta,uye_id,subject,body,expire_time)
+						values('e-mail',p_email,v_uye,
+							'New password for campus',
+							'New password is: '||v_pwd,
+							now()+'1 hours'
+							);
+					
+					v_cd.durum:='forgot_pwd_follow_email';
+					return v_cd;						
+				end if;
+				
+				-- yeni kullanici ise uye veritabaninda eposta kontrolu yap
+				if p_newuser is not null and p_newuser then
+					select id into v_uye
+						from web.uye
+						where eposta=p_email;
+					if found then
+						v_cd.durum:='newuser_email_already_exist';
+						return v_cd;
+					end if;
+					
+					-- var ise yeni sifre olustur, eposta ile gonder
+					v_pwd:=web.generate_random_password(8);
+					v_token:=web.generate_random_password(32);
+					insert into web.uye
+						(alan,eposta,sifre)
+						values(v_cd.alan,p_email,v_pwd)
+						returning id into v_uye; 
+					
+					insert into web.notification
+						(cls,eposta,uye_id,subject,body,expire_time)
+						values('e-mail',p_email,v_uye,
+							'New password for campus',
+							'New password is: '||v_pwd,
+							now()+'1 hours'
+							);
+					
+					v_cd.durum:='create_user_follow_email';
+					return v_cd;						
+				end if;
+				
+				-- sifre yok ise sorun
+				if p_password is null then
+					v_cd.durum:='login_requires_password';
+					return v_cd;
+				end if;
+				
+				select id into v_uye 
+					from web.uye
+					where alan=v_cd.alan
+						and eposta=p_email
+						and sifre=p_password;
+			
+				if not found then
+					v_cd.durum:='login_email_password_error';
+					return v_cd;
+				end if;
 
-		-- cihaz
-			if v_uye is null and a_cihaz is not null then
-				insert into web.uye (alan,cihaz) values (v_cd.alan, a_cihaz) 
-					returning id into v_uye;
-				update web.oturum set uye=v_uye where id=v_cd.oturumid;
-			end if;
+                insert into web.oturum (alan,sid,ip,cihaz,uye) 
+                        values (v_cd.alan, web.sign(json_build_object('email',p_email), 'KRALRUZGAR', 'hs256'), a_ip, a_cihaz, v_uye)
+                        returning id,sid into strict v_cd.oturumid,v_cd.sid;
+				v_cd.durum:='login_success';
+				v_cd.uye_id:=v_uye;
+				return v_cd;
+         else
+                select id,sid,cihaz,uye 
+                	into strict v_cd.oturumid,v_cd.sid,v_cihaz,v_uye 
+                       from web.oturum
+                       where v_cd.alan=alan and a_sid=sid;
+
+                if a_cihaz is not null and v_cihaz is not null and a_cihaz<>v_cihaz then
+                	-- ayni oturumda farkli cihazlar kabul edilemez.
+                	v_cd.acikla:='Security exception for '|| a_ip;
+                	v_cd.durum:='security_error';
+                	return v_cd;
+                end if;
+         end if;
+         
+         select eposta,id into strict v_cd.eposta,v_cd.uye_id
+         	from web.uye
+         	where id=v_uye;
 
        -- yol
-              select * into strict v_yol from web.yol_analiz(a_method,a_yol);
-              select v_yol.yol,v_yol.id into v_cd.tanim,v_cd.id;
+          select * into strict v_yol from web.yol_analiz(a_method,a_yol);
+          select v_yol.yol,v_yol.id into v_cd.tanim,v_cd.id;
        -- find table
               --select * into strict v_tablo
               --       from public.romcomp 
               --       where comptype='table' and prefix=v_yol.prefix and not norom; 
 
-              select schemaname,named into v_sema,v_tablo
-                     from public.romcomp 
-                     where comptype='table' and uzanti=v_yol.uzanti and not norom;
+          select schemaname,named into v_sema,v_tablo
+                 from public.romcomp 
+                 where comptype='table' and uzanti=v_yol.uzanti and not norom;
 
-              if not found then
-                  raise exception 'not_found_prefix: Table not found for prefix %', v_yol.prefix;
-              end if;
+          if not found then
+              raise exception 'not_found_prefix: Table not found for prefix %', v_yol.prefix;
+          	v_cd.durum:='prefix_not_found';
+          	v_cd.acikla:='not_found_prefix: Table not found for prefix '||v_yol.prefix;
+          	return v_cd;
+          end if;
 
        -- find function
-               if v_yol.func is null then
-                      raise exception 'No method found';
-               end if;
-               
-               v_func:=v_tablo||'_'||v_yol.func;
-               select dokun into v_cd.dokun from public.romcomp
-                                    where comptype='function' and schemaname=v_sema and named=v_func and not norom;
-               
-               if not found then
-                      raise exception 'Function not found:%', v_func;
-               end if;
+           if v_yol.func is null then
+           		v_cd.durum:='method_not_found';
+           		return v_cd;
+           end if;
+           
+           v_func:=v_tablo||'_'||v_yol.func;
+           select dokun into v_cd.dokun from public.romcomp
+                                where comptype='function' and schemaname=v_sema and named=v_func and not norom;
+           
+           if not found then
+                 v_cd.durum:='function_not_found';
+                 v_cd.acikla:='Function not found:'|| v_func;
+           		return v_cd;
+           end if;
                
        -- find function params
-               select web.oturum_funcargs(v_sema,v_func) into v_cd.params;
-               
-               if not found then
-                  raise exception 'not_found_func: Function not found %', v_func;
-               end if;
-               
-               v_cd.fonk:=v_sema||'.'||v_func;
+           select web.oturum_funcargs(v_sema,v_func) into v_cd.params;
+           
+           if not found then
+                 v_cd.durum:='function_not_found_for_params';
+                 v_cd.acikla:='Function not found:'|| v_func;
+           end if;
+           
+           v_cd.fonk:=v_sema||'.'||v_func;
 
 	   -- find if returns set
-	   		   select proretset into strict v_cd.retset
-	   		   	from pg_proc pp 
-	   		   		join pg_namespace pn 
-	   		   			on (pp.pronamespace=pn.oid)  
-	   		   	where proname=v_func and nspname=v_sema;
+   		   select 
+   		   		proretset,t.typname 
+   		   			into strict v_cd.retset,v_cd.rettype
+   		   	from pg_proc pp 
+   		   		join pg_namespace pn 
+   		   			on (pp.pronamespace=pn.oid)  
+   		   		join pg_type t 
+   		   			on (pp.prorettype=t.oid)
+   		   	where proname=v_func and nspname=v_sema;
 
-               return v_cd;
+			v_cd.durum:='ok';
+
+           return v_cd;
        
        end;
 $$;
 --@END
 
 
---@FUNCTION ver=2
+--@FUNCTION norom ver=2
 create function web.oturum_funcargs(p_sema text, p_func text) returns json language 'sql' as
 $$
 	select case when a.args::text='[null]' then '[]'::json else a.args end from (
@@ -163,26 +295,87 @@ $$
 $$; 
 --@END
 
-
+-- create user
 --@RUN utest
 do
 $$
 declare
 	v_alanid bigint;
+	v_cd web.cagridetay;
 begin
-	insert into web.alan(isim,onek) values ('deneme.com','/iceri/deyim');
+	insert into web.alan(isim,onek,email_domain) values ('deneme.com','/iceri/deyim', 'localhost.com');
 	select id into strict v_alanid from web.alan where isim='deneme.com';
 	create schema myschema;
 	create table mytable (a int);
 	create function myschema.mytable_myfunc(a_oturum int, p_msg text) returns int language 'sql' as $BODY$ select 1; $BODY$; 
 	insert into public.romcomp(comptype,schemaname,named,ver,norom,uzanti)	values ('table', 'myschema', 'mytable', '1', false, 'myt');
 	insert into public.romcomp(comptype,schemaname,named,ver,norom,uzanti)	values ('function', 'myschema', 'mytable_myfunc', '1', false, null);
-	perform assert_equals('myschema.mytable_myfunc', (web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','cihazim')).fonk);
-	perform assert_equals('["a_oturum-integer", "p_msg-text"]', (web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','cihazim')).params::text);
-	perform check_not_null((web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','cihazim')).oturum);
-	perform check_not_null((web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','cihazim')).oturumid);
-	perform check_not_null((web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','cihazim')).alan);
-	perform assert_equals('/my/sec', (web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/sec/pri.myt/myfunc..', '192.168.1.5','cihazim')).tanim);
+	
+--	insert into web.uye (alan,eposta,sifre) values (v_alanid,'tester@deneme.com', 'sifre');
+	
+	
+	select * into v_cd 
+		from web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', 
+			'192.168.1.5','cihazim','tester@deneme.com','sifre',false,true);
+
+	perform assert_equals('create_user_follow_email', v_cd.durum);
+end;
+$$ language 'plpgsql';
+--@END
+
+-- forget password
+--@RUN utest
+do
+$$
+declare
+	v_alanid bigint;
+	v_cd web.cagridetay;
+begin
+	insert into web.alan(isim,onek,email_domain) values ('deneme.com','/iceri/deyim', 'localhost.com');
+	select id into strict v_alanid from web.alan where isim='deneme.com';
+	create schema myschema;
+	create table mytable (a int);
+	create function myschema.mytable_myfunc(a_oturum int, p_msg text) returns int language 'sql' as $BODY$ select 1; $BODY$; 
+	insert into public.romcomp(comptype,schemaname,named,ver,norom,uzanti)	values ('table', 'myschema', 'mytable', '1', false, 'myt');
+	insert into public.romcomp(comptype,schemaname,named,ver,norom,uzanti)	values ('function', 'myschema', 'mytable_myfunc', '1', false, null);
+	
+	insert into web.uye (alan,eposta,sifre) values (v_alanid,'tester@deneme.com', 'sifre');
+	
+	
+	select * into v_cd 
+		from web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', 
+			'192.168.1.5','cihazim','tester@deneme.com','sifre',true,false);
+
+	perform assert_equals('forgot_pwd_follow_email', v_cd.durum);
+end;
+$$ language 'plpgsql';
+--@END
+
+
+----- login...
+--@RUN utest
+do
+$$
+declare
+	v_alanid bigint;
+	v_cd web.cagridetay;
+begin
+	insert into web.alan(isim,onek,email_domain) values ('deneme.com','/iceri/deyim', 'localhost.com');
+	select id into strict v_alanid from web.alan where isim='deneme.com';
+	create schema myschema;
+	create table mytable (a int);
+	create function myschema.mytable_myfunc(a_oturum int, p_msg text) returns int language 'sql' as $BODY$ select 1; $BODY$; 
+	insert into public.romcomp(comptype,schemaname,named,ver,norom,uzanti)	values ('table', 'myschema', 'mytable', '1', false, 'myt');
+	insert into public.romcomp(comptype,schemaname,named,ver,norom,uzanti)	values ('function', 'myschema', 'mytable_myfunc', '1', false, null);
+	
+	insert into web.uye (alan,eposta,sifre) values (v_alanid,'tester@deneme.com', 'sifre');
+	
+	
+	select * into v_cd 
+		from web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', 
+			'192.168.1.5','cihazim','tester@deneme.com','sifre');
+--	perform assert_equals('mid', v_cd.sid);
+	perform assert_equals('login_success', v_cd.durum);
 end;
 $$ language 'plpgsql';
 --@END
@@ -193,7 +386,7 @@ $$
 declare
 	v_cd web.cagridetay;
 begin
-	insert into web.alan(isim,onek) values ('deneme.com','/iceri/deyim');
+	insert into web.alan(isim,onek,email_domain) values ('deneme.com','/iceri/deyim','localhost.com');
 	create schema myschema;
 	create table mytable (a int);
 	create function myschema.mytable_myfunc(a_oturum int, p_msg text) returns int language 'sql' as $BODY$ select 3; $BODY$; 

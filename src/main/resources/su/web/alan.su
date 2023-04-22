@@ -4,6 +4,7 @@
 create table web.alan(
 	id bigserial primary key,
 	isim text unique,
-	onek text
+	onek text,
+	email_domain text
   );
 --@END

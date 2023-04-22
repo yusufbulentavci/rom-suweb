@@ -1,0 +1,109 @@
+--@DEPENDS:.base
+
+
+--@FUNCTION norom 
+create function web.url_encode(data bytea) returns text language sql as $$
+    select translate(encode(data, 'base64'), e'+/=\n', '-_');
+$$ immutable;
+--@END
+
+--@FUNCTION norom 
+create function web.url_decode(data text) returns bytea language sql as $$
+with t as (select translate(data, '-_', '+/') as trans),
+     rem as (select length(t.trans) % 4 as remainder from t) -- compute padding size
+    select decode(
+        t.trans ||
+        case when rem.remainder > 0
+           then repeat('=', (4 - rem.remainder))
+           else '' end,
+    'base64') from t, rem;
+$$ immutable;
+--@END
+
+--@FUNCTION norom 
+create function web.algorithm_sign(signables text, secret text, algorithm text)
+returns text language sql as $$
+with
+  alg as (
+    select case
+      when algorithm = 'hs256' then 'sha256'
+      when algorithm = 'hs384' then 'sha384'
+      when algorithm = 'hs512' then 'sha512'
+      else '' end as id)  -- hmac throws error
+select web.url_encode(hmac(signables, secret, alg.id)) from alg;
+$$ immutable;
+--@END
+
+--@FUNCTION norom 
+create function web.sign(payload json, secret text, algorithm text default 'hs256')
+returns text language sql as $$
+with
+  header as (
+    select web.url_encode(convert_to('{"alg":"' || algorithm || '","typ":"jwt"}', 'utf8')) as data
+    ),
+  payload as (
+    select web.url_encode(convert_to(payload::text, 'utf8')) as data
+    ),
+  signables as (
+    select header.data || '.' || payload.data as data from header, payload
+    )
+select
+    signables.data || '.' ||
+    web.algorithm_sign(signables.data, secret, algorithm) from signables;
+$$ immutable;
+--@END
+
+--@FUNCTION norom 
+create function web.try_cast_double(inp text)
+returns double precision as $$
+  begin
+    begin
+      return inp::double precision;
+    exception
+      when others then return null;
+    end;
+  end;
+$$ language plpgsql immutable;
+--@END
+
+--@FUNCTION norom 
+create function web.verify(token text, secret text, algorithm text default 'hs256')
+returns table(header json, payload json, valid boolean) language sql as $$
+  select
+    jwt.header as header,
+    jwt.payload as payload,
+    jwt.signature_ok and tstzrange(
+      to_timestamp(web.try_cast_double(jwt.payload->>'nbf')),
+      to_timestamp(web.try_cast_double(jwt.payload->>'exp'))
+    ) @> current_timestamp as valid
+  from (
+    select
+      convert_from(web.url_decode(r[1]), 'utf8')::json as header,
+      convert_from(web.url_decode(r[2]), 'utf8')::json as payload,
+      r[3] = web.algorithm_sign(r[1] || '.' || r[2], secret, algorithm) as signature_ok
+    from regexp_split_to_array(token, '\.') r
+  ) jwt
+$$ immutable;
+--@END
+
+--@RUN utest
+do
+$$
+declare
+	jwt text;
+	v record;
+begin
+	select web.sign('{"id":"king"}'::json, 'KRAL', 'hs256') into jwt;
+	
+	select * into v from web.verify(jwt, 'KRAL', 'hs256');
+	
+	
+	assert v.valid, 'Valid olmaliydi';
+	
+	assert v.payload::text='{"id":"king"}','Payload uyusmadi'; 
+	assert v.payload::text<>'{"id":"kin"}','Payload uyusmadi'; 
+	
+end;
+$$ language 'plpgsql';
+--@END
+

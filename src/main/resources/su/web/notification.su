@@ -4,20 +4,20 @@
 
 --@TABLE uzanti=not
 create table web.notification(
-	id bigserial primary key,
-	role text not null,
-	prosedur_id bigint references web.prosedur(id) not null,
-	creation_time timestamp,
+	notification_id bigserial primary key,
+	cls text not null,
+	eposta text,
+	mobile_phone text,
+	uye_id text,
+	prosedur_id bigint references web.prosedur(prosedur_id),
+	creation_time timestamp default now(),
 	expire_time timestamp,
 	token text,
-	params jsonb,
-	declaration jsonb,
-	report jsonb,
-	accomplished timestamp,
-	result boolean,
-	prosedur_type text,
-	func text,
-	client_app text
+	subject text not null,
+	body text,
+	tried int default 0,
+	sent timestamp,
+	seen timestamp
   );
 --@END
 

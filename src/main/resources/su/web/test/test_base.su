@@ -6,12 +6,13 @@ $$
 declare
 	v_alan bigint;
 begin
-	insert into web.alan(isim,onek) 
-		values ('localhost','/kampus')
-		returning id into v_alan;
+	insert into web.alan(isim,onek,email_domain) 
+		values ('localhost','/campus','localhost.com') returning id into v_alan;
 
-	insert into web.uye(id,alan,isim,rols) 
-		values (0,v_alan,'root','["root"]');
+	insert into web.uye(id, alan, eposta, isim, rols,sifre) values (0,v_alan,'root@localhost.com', 'root','["root"]','sifre');
+	insert into web.uye(alan, eposta, isim, rols,sifre) values (v_alan,'tester@localhost.com', 'tester','[]','sifre');
+	
+	
 end;
 $$ language 'plpgsql';
 --@END

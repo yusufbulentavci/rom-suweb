@@ -13,8 +13,8 @@ create table web.interaction(
 	success_if_expire boolean not null default false,
 	accomplished timestamp,
 	token text,
-	subject jsonb,
-	body jsonb,
+	subject text,
+	body text,
 	params jsonb,
 	initial jsonb,
 	vals jsonb,
@@ -25,7 +25,7 @@ create table web.interaction(
 
 --@FUNCTION norom
 create function web.interaction_new(a_user_id int, p_prosedur_id bigint, p_cmd text, p_valid_for interval, 
-	p_subject jsonb, p_body jsonb, p_params jsonb, p_default jsonb default null, p_success_if_expire boolean default false) returns int
+	p_subject text, p_body text, p_params jsonb, p_default jsonb default null, p_success_if_expire boolean default false) returns int
 language 'plpgsql'
 as $$
 	declare
@@ -62,10 +62,24 @@ as $$
 			from web.prosedur
 			where prosedur_id=v_int.prosedur_id;
 	
-	--	v_exec:=format('perform web.prosedur_%s(%s,''next'',%s);', v_proc.prosedur_code, a_user_id, v_int.prosedur_id);
+--	v_exec:=format('perform web.prosedur_%s(a_user_id=>%s,p_cmd=>''next'',a_id=>%s,p_interaction=>%s);', v_proc.prosedur_code, a_user_id, v_proc.prosedur_id, a_id);
 
-	--	execute v_exec;
-	perform web.prosedur_rcp_root_create_person(0,'next',1,p_interaction=>a_id);
+	v_exec:='select web.prosedur_'
+		|| v_proc.prosedur_code 
+		||'(a_user_id=>'
+		||a_user_id
+		||',p_cmd=>''next'',a_id=>'
+		||v_proc.prosedur_id
+		||',p_interaction=>'
+		||a_id
+		||');';
+
+
+	raise notice '->%',v_exec;
+
+	execute v_exec;
+--	perform web.prosedur_csaf_cv_set_academic_field(a_user_id=>0,p_cmd=>'next',a_id=>1,p_interaction=>1);
+	--perform web.prosedur_rcp_root_create_person(0,'next',1,p_interaction=>a_id);
 	return 0;
 	end;
 $$;

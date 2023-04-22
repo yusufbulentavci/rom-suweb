@@ -10,21 +10,61 @@ create table web.uye(
 	isim text,
 	sifre text,
 	login boolean not null default true,
-	rols jsonb,
+	rols jsonb not null default '[]',
 	onaylandi boolean,
-	askida boolean not null default false
+	askida boolean not null default true,
+	token text
   );
 --@END
 
---@FUNCTION roles=web_member_admin
+--@FUNCTION norom roles=web_member_admin
 create function web.uye_yeni(a_id int, p_eposta text, p_isim text, p_sifre text) returns int
 language 'plpgsql'
 as $$
 	begin
-	
-	
 	insert into web.uye (id,eposta,isim,sifre) values (0,p_eposta,p_isim,p_sifre) returning id;
 	end;
 $$;
 --@END
 
+--https://www.postgresql.org/docs/current/errcodes-appendix.html
+--@FUNCTION norom 
+create function web.uye_check_role(a_id int, p_role text) returns void
+language 'plpgsql'
+as $$
+	declare
+		v_rols jsonb;
+	begin
+		-- valid for root
+		if a_id = 0 then
+			return;
+		end if;
+	
+		select rols into v_rols
+			 from web.uye where id=a_id;
+		
+		if not found then
+			raise unique_violation using message = 'User '||a_id||' not found'; 
+		end if;
+	
+		if  not (v_rols ? p_role ) then
+			raise unique_violation using message = 'User '||a_id||' does not have role:'||p_role; 
+		end if;
+	end;
+$$;
+--@END
+
+
+--@RUN utest
+do
+$$
+declare
+	v_alan int;
+	v_user int;
+begin
+	insert into web.alan(isim,onek) values ('deneme.com','gir') returning id into v_alan;
+	insert into web.uye(alan,eposta,rols) values (v_alan,'kisi@deneme.com','["cilgin"]') returning id into v_user;
+	perform web.uye_check_role(v_user, 'cilgin');
+end;
+$$ language 'plpgsql';
+--@END

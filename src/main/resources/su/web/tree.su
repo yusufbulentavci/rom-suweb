@@ -1,0 +1,40 @@
+--@DEPENDS:.base,.alan
+
+--@TABLE uzanti=tri
+create table web.tree(
+	code ltree primary key,
+	val jsonb not null,
+	ord int not null default 100
+  );
+--@END
+
+--@FUNCTION 
+create function web.tree_new(p_code text, p_val jsonb, p_order int) returns text
+language 'sql'
+as $$
+	insert into web.tree (code,val,ord) values (p_code::ltree,p_val,p_order) returning code::text;
+$$;
+--@END
+
+--@FUNCTION 
+create function web.tree_new_wlng(p_code text, p_lng text, p_val text, p_order int) returns text
+language 'sql'
+as $$
+	insert into web.tree (code,val,ord) values (p_code::ltree, jsonb_build_object(p_lng,p_val), p_order) returning code::text;
+$$;
+--@END
+
+
+--@FUNCTION ver=1
+create function web.tree_list(p_code text, p_lng text) returns jsonb
+language 'sql'
+as $$
+	select jsonb_agg(k)
+		from (
+			select code::text as key, (val->>p_lng) as val
+				from web.tree 
+				where code ~ (p_code||'.*')::lquery
+				order by ord) k;
+$$;
+--@UPGRADE: 1 drop function web.tree_list(text, text);
+--@END
