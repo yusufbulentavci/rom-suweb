@@ -88,6 +88,23 @@ $$;
 --@END
 
 
+--@FUNCTION 
+create function web.interaction_cancel(a_user_id int, a_id bigint) returns bigint
+language 'plpgsql'
+as $$
+	declare
+		v_proc_id bigint;
+	begin
+	
+	delete from web.interaction where interaction_id=a_id returning prosedur_id into v_proc_id;
+	delete from web.prosedur where prosedur_id=v_proc_id;
+	
+	return 0;
+	end;
+$$;
+--@END
+
+
 --@FUNCTION
 create function web.interaction_list(a_user_id int) returns jsonb
 language 'sql'
