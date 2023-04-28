@@ -60,7 +60,7 @@ end;
 $$ language plpgsql;
 --@END
 
---@FUNCTION norom ver=7
+--@FUNCTION norom ver=9
 create function web.oturum_ilk(a_method text, a_alan text, a_sid text, a_yol text, a_ip text, a_cihaz text, 
 	p_email text default null, p_password text default null, p_forgot boolean default false, p_newuser boolean default false) returns web.cagridetay
 language 'plpgsql' as
@@ -226,9 +226,8 @@ $$
                  where comptype='table' and uzanti=v_yol.uzanti and not norom;
 
           if not found then
-              raise exception 'not_found_prefix: Table not found for prefix %', v_yol.prefix;
           	v_cd.durum:='prefix_not_found';
-          	v_cd.acikla:='not_found_prefix: Table not found for prefix '||v_yol.prefix;
+          	v_cd.acikla:='not_found_prefix: Table not found for yol: '||a_yol;
           	return v_cd;
           end if;
 

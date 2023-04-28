@@ -25,16 +25,37 @@ $$;
 --@END
 
 
---@FUNCTION ver=1
-create function web.tree_list(p_code text, p_lng text) returns jsonb
+--@FUNCTION ver=3
+create function web.tree_list(p_code text, p_lng text default 'uz') returns jsonb
 language 'sql'
 as $$
 	select jsonb_agg(k)
 		from (
-			select code::text as key, (val->>p_lng) as val
+			select code::text as key, (val->>(coalesce(p_lng,'uz'))) as val
 				from web.tree 
 				where code ~ (p_code||'.*')::lquery
 				order by ord) k;
 $$;
 --@UPGRADE: 1 drop function web.tree_list(text, text);
 --@END
+
+--@FUNCTION 
+create function web.tree_get(a_id text, p_lng text default 'uz') returns text
+language 'sql'
+as $$
+	select val->>(coalesce(p_lng,'uz'))
+				from web.tree 
+				where code = a_id::ltree;
+$$;
+--@END
+
+--@FUNCTION norom
+create function web.tree_get_in(a_id ltree, p_lng text default 'uz') returns text
+language 'sql'
+as $$
+	select val->>(coalesce(p_lng,'uz'))
+				from web.tree 
+				where code = a_id;
+$$;
+--@END
+

@@ -43,7 +43,7 @@ as $$
 $$;
 --@END
 
---@FUNCTION
+--@FUNCTION ver=3
 create function web.interaction_complete(a_user_id int, a_id bigint, p_values jsonb) returns bigint
 language 'plpgsql'
 as $$
@@ -78,8 +78,10 @@ as $$
 	raise notice '->%',v_exec;
 
 	execute v_exec;
---	perform web.prosedur_csaf_cv_set_academic_field(a_user_id=>0,p_cmd=>'next',a_id=>1,p_interaction=>1);
-	--perform web.prosedur_rcp_root_create_person(0,'next',1,p_interaction=>a_id);
+	
+	delete from web.interaction where interaction_id=a_id;
+	delete from web.prosedur where current_step='completed';
+	
 	return 0;
 	end;
 $$;
