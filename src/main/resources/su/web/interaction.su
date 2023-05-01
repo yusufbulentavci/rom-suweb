@@ -43,7 +43,7 @@ as $$
 $$;
 --@END
 
---@FUNCTION ver=3
+--@FUNCTION ver=5
 create function web.interaction_complete(a_user_id int, a_id bigint, p_values jsonb) returns bigint
 language 'plpgsql'
 as $$

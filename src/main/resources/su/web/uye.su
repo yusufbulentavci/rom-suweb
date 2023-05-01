@@ -1,6 +1,6 @@
 --@DEPENDS:.base,.alan
 
---@TABLE uzanti=uye
+--@TABLE uzanti=uye ver=1
 create table web.uye(
 	id serial primary key,
 	alan int not null references web.alan(id),
@@ -13,7 +13,9 @@ create table web.uye(
 	rols jsonb not null default '[]',
 	onaylandi boolean,
 	askida boolean not null default true,
-	token text
+	token text,
+	phone text
+--@UPGRADE 1: alter table web.uye add column phone text
   );
 --@END
 
