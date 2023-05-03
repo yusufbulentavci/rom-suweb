@@ -1,6 +1,6 @@
 --@DEPENDS:.base,.alan,.yol,.uye,.notification,.jwt
 
---@TABLE
+--@TABLE uzanti=otu
 create table web.oturum(
 	id bigserial primary key,
 	sid text unique,
@@ -60,7 +60,7 @@ end;
 $$ language plpgsql;
 --@END
 
---@FUNCTION norom ver=9
+--@FUNCTION norom ver=10
 create function web.oturum_ilk(a_method text, a_alan text, a_sid text, a_yol text, a_ip text, a_cihaz text, 
 	p_email text default null, p_password text default null, p_forgot boolean default false, p_newuser boolean default false) returns web.cagridetay
 language 'plpgsql' as
@@ -197,9 +197,14 @@ $$
 				return v_cd;
          else
                 select id,sid,cihaz,uye 
-                	into strict v_cd.oturumid,v_cd.sid,v_cihaz,v_uye 
+                	into  v_cd.oturumid,v_cd.sid,v_cihaz,v_uye 
                        from web.oturum
                        where v_cd.alan=alan and a_sid=sid;
+				if not found then
+						v_cd.durum:='no_session';
+						return v_cd;
+				end if;
+
 
                 if a_cihaz is not null and v_cihaz is not null and a_cihaz<>v_cihaz then
                 	-- ayni oturumda farkli cihazlar kabul edilemez.
@@ -493,26 +498,20 @@ as $$
 $$;
 --@END
 
---@FUNCTION
-create function web.oturum_kapat(a_sid bigint) returns text
+--@FUNCTION ver=3
+create function web.oturum_kapat(a_id text) returns text
 language 'plpgsql'
 as $$
 	declare
 		v_oturum web.oturum;
 		v_uye web.uye;
 	begin
-	-- oturumu bul
-		select * into a_sid from web.oturum where id=a_sid;
-		if not found then
-			return 'oturum_yok';
-		end if;
 	-- kullanici iliskisi bitirildi
-		update web.oturum 
-			set
-				uye=null
-			where
-				id=a_sid;
+		delete from web.oturum 
+			where sid=a_id;
 		return 'ok';
 	end;
 $$;
 --@END
+
+
