@@ -91,6 +91,7 @@ do
 $$
 declare
 	jwt text;
+	jwt2 text;
 	v record;
 begin
 	select web.sign('{"id":"king"}'::json, 'KRAL', 'hs256') into jwt;
@@ -103,6 +104,9 @@ begin
 	assert v.payload::text='{"id":"king"}','Payload uyusmadi'; 
 	assert v.payload::text<>'{"id":"kin"}','Payload uyusmadi'; 
 	
+	select web.sign('{"id":"king2"}'::json, 'KRAL', 'hs256') into jwt2;
+	
+	assert jwt<>jwt2, 'Payloas ayni olmamali idi';
 end;
 $$ language 'plpgsql';
 --@END

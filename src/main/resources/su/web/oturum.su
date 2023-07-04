@@ -1,19 +1,21 @@
 --@DEPENDS:.base,.alan,.yol,.uye,.notification,.jwt
 
---@TABLE uzanti=otu
+--@TABLE uzanti=otu ver=1
 create table web.oturum(
 	id bigserial primary key,
 	sid text unique,
 	alan int not null references web.alan(id),
 	uye int references web.uye(id),
-	cihaz text,
-	ip text,
+	cihaz jsonb,
+	ip inet,
 	baslangic timestamp default now(),
-	bitis timestamp,
-	hata_sayisi int,
 	lang char(2) default 'uz',
 	country char(2) default 'TR'
   );
+--@UPGRADE: 1 alter table web.oturum alter column cihaz type jsonb using cihaz::jsonb;
+--@UPGRADE: 1 alter table web.oturum alter column ip type inet using ip::inet;
+--@UPGRADE: 1 alter table web.oturum drop column hata_sayisi;
+--@UPGRADE: 1 alter table web.oturum drop column bitis;
 --@END
 
 --@TYPE ver=3
@@ -60,8 +62,8 @@ end;
 $$ language plpgsql;
 --@END
 
---@FUNCTION norom ver=10
-create function web.oturum_ilk(a_method text, a_alan text, a_sid text, a_yol text, a_ip text, a_cihaz text, 
+--@FUNCTION norom ver=13
+create function web.oturum_ilk(a_method text, a_alan text, a_sid text, a_yol text, a_ip text, a_cihaz jsonb, 
 	p_email text default null, p_password text default null, p_forgot boolean default false, p_newuser boolean default false) returns web.cagridetay
 language 'plpgsql' as
 $$
@@ -71,7 +73,7 @@ $$
               v_func text;
               v_sema text;
               v_tablo text;
-              v_cihaz text;
+              v_cihaz jsonb;
               v_uye int;
               v_pwd text;
               v_token text;
@@ -188,9 +190,11 @@ $$
 					v_cd.durum:='login_email_password_error';
 					return v_cd;
 				end if;
+				
+				delete from web.oturum where uye=v_uye and cihaz=a_cihaz;
 
                 insert into web.oturum (alan,sid,ip,cihaz,uye) 
-                        values (v_cd.alan, web.sign(json_build_object('email',p_email), 'KRALRUZGAR', 'hs256'), a_ip, a_cihaz, v_uye)
+                        values (v_cd.alan, web.sign(json_build_object('email',p_email,'ts',now()), 'KRALRUZGAR', 'hs256'), a_ip::inet, a_cihaz, v_uye)
                         returning id,sid into strict v_cd.oturumid,v_cd.sid;
 				v_cd.durum:='login_success';
 				v_cd.uye_id:=v_uye;
@@ -320,7 +324,7 @@ begin
 	
 	select * into v_cd 
 		from web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', 
-			'192.168.1.5','cihazim','tester@deneme.com','sifre',false,true);
+			'192.168.1.5','{"ua":""}'::jsonb,'tester@deneme.com','sifre',false,true);
 
 	perform assert_equals('create_user_follow_email', v_cd.durum);
 end;
@@ -348,7 +352,7 @@ begin
 	
 	select * into v_cd 
 		from web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', 
-			'192.168.1.5','cihazim','tester@deneme.com','sifre',true,false);
+			'192.168.1.5','{"ua":""}'::jsonb,'tester@deneme.com','sifre',true,false);
 
 	perform assert_equals('forgot_pwd_follow_email', v_cd.durum);
 end;
@@ -377,7 +381,7 @@ begin
 	
 	select * into v_cd 
 		from web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', 
-			'192.168.1.5','cihazim','tester@deneme.com','sifre');
+			'192.168.1.5','{"ua":""}'::jsonb,'tester@deneme.com','sifre');
 --	perform assert_equals('mid', v_cd.sid);
 	perform assert_equals('login_success', v_cd.durum);
 end;
@@ -397,11 +401,11 @@ begin
 	insert into public.romcomp(comptype,schemaname,named,ver,norom,uzanti)	values ('table', 'myschema', 'mytable', '1', false, 'myt');
 	insert into public.romcomp(comptype,schemaname,named,ver,norom,uzanti)	values ('function', 'myschema', 'mytable_myfunc', '1', false, null);
 	--select 
-	perform	web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','cihazim');
+	perform	web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','{"ua":""}'::jsonb);
 	--	into v_cd;
 		
---	perform assert_equals('myschema.mytable_myfunc', (web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','cihazim')).fonk);
---	perform assert_equals('[]', (web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','cihazim')).params::text);
+--	perform assert_equals('myschema.mytable_myfunc', (web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','{"ua":""}'::jsonb)).fonk);
+--	perform assert_equals('[]', (web.oturum_ilk('get', 'deneme.com', null, '/iceri/deyim/my/pri.myt/myfunc..', '192.168.1.5','{"ua":""}'::jsonb)).params::text);
 end;
 $$ language 'plpgsql';
 --@END
